@@ -20,8 +20,8 @@ pip install numpy matplotlib
 Clone the repository and run the example:
 
 ```bash
-git clone https://github.com/yourusername/neural-network-from-scratch.git
-cd neural-network-from-scratch
+git clone https://github.com/tammam-bt/NN-library-from-scratch.git
+cd NN-library-from-scratch
 python test_xor.py
 ```
 
@@ -43,8 +43,8 @@ No special configuration is required. The only dependencies are:
 To start modifying or extending the library:
 
 ```bash
-git clone https://github.com/yourusername/neural-network-from-scratch.git
-cd neural-network-from-scratch
+git clone https://github.com/tammam-bt/NN-library-from-scratch.git
+cd NN-library-from-scratch
 ```
 
 Project structure is simple:
@@ -163,8 +163,8 @@ For major changes, consider opening an issue first to discuss the approach.
 
 ## Links
 
-- Repository: https://github.com/yourusername/neural-network-from-scratch
-- Issue Tracker: https://github.com/yourusername/neural-network-from-scratch/issues
+- Repository: https://github.com/tammam-bt/NN-library-from-scratch
+- Issue Tracker: https://github.com/tammam-bt/NN-library-from-scratch/issues
 
 ---
 
