@@ -1,196 +1,133 @@
-<img src="https://cdn-icons-png.flaticon.com/512/7747/7747363.png" alt="Logo of the project" height="200">
+<img src="https://cdn-icons-png.flaticon.com/512/7747/7747363.png" alt="Axiom Library Logo" height="150">
 
-Neural Network Library from Scratch
-===================================
+Axiom
+=====
 
-> A high-performance, minimal NumPy-based framework for understanding deep learning internals.
+> **A foundational Machine Learning and Neural Computing library implemented from first principles.**
 
-This project is a lightweight neural network library implemented from the ground up using Python and NumPy. While it avoids the heavy overhead of frameworks like TensorFlow or PyTorch, it implements advanced features like **momentum**, **L2 regularization**, and **automated smart initialization** to ensure stability and convergence on non-linear problems like XOR.
+**Axiom** is a high-performance, minimal framework designed to bridge the gap between mathematical theory and software engineering. Built entirely on **NumPy**, it provides a transparent implementation of both gradient-based architectures (Neural Networks, Regressions) and logic-based structures (Decision Trees, Random Forests).
 
-It is designed for students and developers who want to see the exact flow of matrices during forward and backward propagation without the "black box" of production-grade libraries.
+Designed for engineers and researchers who demand a "glass-box" view of algorithmic internals, Axiom eliminates the overhead of production heavyweights while maintaining the rigor of an industrial-grade stack.
 
 ***
 
-Quick Start
------------
+🏗️ Core Architecture
+---------------------
+
+Axiom is organized into distinct modules, allowing for a hybrid approach to machine learning:
+
+### 🧠 Neural Engine (`axiom.nn`)
+
+*   **Sequential API:** Build deep architectures effortlessly using a stackable layer interface.
+    
+*   **Smart Initialization:** Automated selection of **He**, **Xavier**, or **LeCun** strategies based on subsequent activation functions.
+    
+*   **Optimization Suite:** Momentum-based SGD for accelerated convergence and L2 Regularization for robust generalization.
+    
+*   **Activations:** Comprehensive support for `ReLU`, `Leaky_ReLU`, `Sigmoid`, `Tanh`, and `SELU`.
+    
+
+### 🌲 Logic Suite (`axiom.trees`)
+
+*   **Decision Trees:** Recursive splitting logic utilizing **Information Gain** and **Entropy/Gini Impurity**.
+    
+*   **Ensemble Methods:** Native support for **Random Forests** and **Boosting** strategies.
+    
+*   **Categorical Handling:** Efficient processing of discrete decision boundaries without gradient dependency.
+    
+
+### 📈 Linear Systems (`axiom.linear`)
+
+*   **Closed-Form Solutions:** Linear Regression via the **Normal Equation** for direct mathematical optimization.
+    
+*   **Iterative Solvers:** Logistic Regression implemented with optimized Gradient Descent kernels.
+    
+
+***
+
+⚡ Quick Start
+-------------
 
 ### Installation
 
-Minimal setup required:
+Ensure you have the core numerical dependency installed:
 
 Bash
 
     pip install numpy 
 
-### Run the XOR Benchmark
+### Running the XOR Benchmark
 
-The library comes with a verified XOR test case that achieves 0.9+ confidence in under 2,000 epochs.
+Verify the Neural Engine’s convergence on non-linear boundaries:
 
 Bash
 
-    git clone https://github.com/tammam-bt/NN-library-from-scratch.git
-    cd NN-library-from-scratch
+    git clone https://github.com/tammam-bt/Axiom.git
+    cd Axiom
     python test_xor.py 
 
 ***
 
-Core Features
--------------
+📉 Example Usage
+----------------
 
-### 🏗️ Architecture
-
-*   **Sequential API:** Stack layers effortlessly using `NN.Sequential`.
-    
-*   **Dense Layers:** Fully connected layers with customizable input/output dimensions.
-    
-*   **Expanded Activations:** Includes `Sigmoid`, `Tanh`, `ReLU`, `Leaky_ReLU`, and `SELU`.
-    
-*   **Smart Initialization:** Automatically selects the best strategy (**He**, **Xavier**, or **LeCun**) based on the following activation layer.
-    
-
-### ⚡ Optimization & Math
-
-*   **Momentum-based SGD:** Accelerates convergence and avoids local minima using velocity tracking.
-    
-*   **L2 Regularization:** Integrated weight decay to prevent overfitting.
-    
-*   **Fused Gradients:** Internal "Simplified Math" logic for BCE/Sigmoid and MSE/Linear combinations to improve numerical stability.
-    
-*   **Epsilon Clipping:** Built-in safeguards (`1e-15`) to prevent `NaN` errors during log calculations.
-    
-
-### 📉 Supported Loss Functions
-
-*   **BCE:** Binary Cross-Entropy (for binary classification).
-    
-*   **MSE:** Mean Squared Error (for regression).
-    
-*   **Log-Cosh:** A smoother, more robust alternative to MSE.
-    
-*   **CCE:** Categorical Cross-Entropy (for multi-class classification).
-    
-
-***
-
-Example Usage
--------------
-
-Building a 2-layer network with momentum to solve XOR:
+### Building a Neural Network
 
 Python
 
-    import NN
+    import axiom as ax
     import numpy as np
     
-    # Data setup
-    x_train = np.array([[0,0], [0,1], [1,0], [1,1]])
-    y_train = np.array([[0], [1], [1], [0]])
-    
-    # Define architecture with automated smart initialization
-    network = NN.Sequential([
-        NN.Dense(2, 3, momentum_beta=0.9, l2_lambda=0.01),
-        NN.ReLU(),
-        NN.Dense(3, 1),
-        NN.Sigmoid()
+    # Define architecture
+    network = ax.nn.Sequential([
+        ax.nn.Dense(2, 8, momentum_beta=0.9),
+        ax.nn.ReLU(),
+        ax.nn.Dense(8, 1),
+        ax.nn.Sigmoid()
     ])
     
-    # Initialize model with Binary Cross-Entropy
-    model = NN.Model(network, loss="BCE")
+    model = ax.Model(network, loss="BCE")
+    model.fit(x_train, y_train, epochs=2000, lr=0.1) 
+
+### Deploying a Decision Tree
+
+Python
+
+    from axiom.trees import DecisionTreeClassifier
     
-    # Train with specific learning rate
-    model.fit(x_train, y_train, epochs=2000, lr=0.1)
-    
-    # Inference
-    print(model.predict(x_train)) 
+    clf = DecisionTreeClassifier(max_depth=5, criterion="entropy")
+    clf.fit(X_train, y_train)
+    predictions = clf.predict(X_test) 
 
 ***
 
-API Reference
--------------
+🛠️ Technical Specifications
+----------------------------
 
-### `Dense` Parameters
+| Component | Supported Features | Optimization Strategy | Mathematical Basis |
+| :--- | :--- | :--- | :--- |
+| **Optimizers** | SGD, Momentum | Velocity tracking, Weight Decay (L2) | Gradient Descent |
+| **Loss Functions** | BCE, MSE, CCE, Log-Cosh | Fused Gradients, Epsilon Clipping | Information Theory / Calculus |
+| **Initializers** | He, Xavier, LeCun | Distribution-aware variance scaling | Statistical Initialization |
+| **Tree Logic** | ID3 / C4.5 Optimized | Recursive partitioning | Shannon Entropy / Gini |
 
-Parameter
+🚀 Roadmap & Future Milestones
+------------------------------
 
-Type
-
-Description
-
-`input_size`
-
-`int`
-
-Number of input features.
-
-`output_size`
-
-`int`
-
-Number of neurons in the layer.
-
-`initialization`
-
-`str`
-
-`"xavier"`, `"he"`, or `"lecun"`. (Overridden by `Sequential` smart init).
-
-`momentum_beta`
-
-`float`
-
-Velocity decay (0 to 1). Set to 0 for pure SGD.
-
-`l2_lambda`
-
-`float`
-
-Weight decay penalty for regularization.
-
-Export to Sheets
-
-### `Model.fit` Parameters
-
-Parameter
-
-Type
-
-Description
-
-`epochs`
-
-`int`
-
-Number of iterations over the full dataset.
-
-`lr`
-
-`float`
-
-Learning rate for weight updates.
-
-Export to Sheets
-
-***
-
-Future Improvements
--------------------
-
-*   \[ \] **Mini-batch Support:** Currently optimized for full-batch processing.
+*   \[ \] **Vectorized Mini-batching:** Transition from full-batch to stochastic mini-batch processing for large-scale data.
     
-*   \[ \] **Adam Optimizer:** Adding adaptive moment estimation.
+*   \[ \] **Adaptive Optimizers:** Implementation of **Adam** and **RMSProp** for automated learning rate scaling.
     
-*   \[ \] **Dropout Layers:** For enhanced regularization in larger networks.
+*   \[ \] **Convolutional Kernels:** Expanding the Neural Engine to support spatial feature extraction (CNNs).
     
-*   \[ \] **Model Serialization:** Saving and loading weights via `.npz` files.
+*   \[ \] **Serialization:** Native `.npz` support for saving and deploying trained model weights.
     
 
 ***
 
-Licensing
----------
+📜 Licensing
+------------
 
-Licensed under the [MIT License](https://www.google.com/search?q=LICENSE).
+This project is licensed under the [MIT License](https://opensource.org/licenses/MIT).
 
 ***
-
-**Would you like me to help you draft a specific `test_xor.py` script that utilizes these new momentum and smart-init features to include in your repo?**
