@@ -136,10 +136,7 @@ class Sequential:
         # If simplified_math is True, the loss gradient is already fused with the 
         # final activation derivative (e.g., BCE + Sigmoid = A - Y), so we skip the last layer.
         layers_to_backprop = self.layers[:-1][::-1] if simplified_math else self.layers[::-1]
-        
-        if not simplified_math:
-            output_gradient = self.layers[-1].backward(output_gradient, learning_rate) 
-            
+          
         for layer in layers_to_backprop:
             output_gradient = layer.backward(output_gradient, learning_rate)
             
@@ -171,7 +168,7 @@ class Model:
 
     def fit(self, X_train, Y_train, epochs, lr):
         print_interval = max(1, epochs // 100)
-        
+        print(self._is_simplified_math_combination())
         for epoch in range(epochs):
             output = self.Sequential.forward(X_train)
             error = self.loss(Y_train, output)
@@ -194,9 +191,8 @@ class Model:
         """Checks if the architecture qualifies for a fused backward pass calculation."""
         last_layer = self.Sequential.layers[-1]
         is_bce_sigmoid = self.loss.__name__ == "BCE" and isinstance(last_layer, Sigmoid)
-        is_mse_linear = self.loss.__name__ == "MSE" and isinstance(last_layer, Dense)
         # To Add CCE + Softmax
-        return is_bce_sigmoid or is_mse_linear
+        return is_bce_sigmoid
 
     def _choose_loss(self, name):
         name = name.lower().strip()
