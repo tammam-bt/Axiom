@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from axiom.trees.decison_tree import DecisionTreeClassifier
+from axiom.trees.decision_tree import DecisionTreeClassifier
 
 
 print("Initializing sanity check...")
