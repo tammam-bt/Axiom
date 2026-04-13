@@ -1,129 +1,213 @@
 <img src="https://cdn-icons-png.flaticon.com/512/7747/7747363.png" alt="Axiom Library Logo" height="150">
 
-Axiom
-=====
+# Axiom (`axiom-ml`)
 
-> **A foundational Machine Learning and Neural Computing library implemented from first principles.**
+<p align="center">
+  <img src="https://img.shields.io/pypi/v/axiom-ml?color=blue&label=PyPI&logo=pypi&logoColor=white" alt="PyPI Version"/>
+  <img src="https://img.shields.io/pypi/pyversions/axiom-ml?logo=python&logoColor=white" alt="Python Versions"/>
+  <img src="https://img.shields.io/github/license/tammam-bt/axiom?color=green" alt="License"/>
+  <img src="https://img.shields.io/pypi/dm/axiom?color=orange&label=Downloads" alt="Downloads"/>
+  <img src="https://img.shields.io/badge/dependencies-NumPy%20only-lightgrey" alt="Dependencies"/>
+  <img src="https://img.shields.io/badge/status-active-brightgreen" alt="Status"/>
+</p>
 
-**Axiom** is a high-performance, minimal framework designed to bridge the gap between mathematical theory and software engineering. Built entirely on **NumPy**, it provides a transparent implementation of both gradient-based architectures (Neural Networks, Regressions) and logic-based structures (Decision Trees, Random Forests).
+> **A from-scratch, NumPy-only machine learning library built to make the math visible.**
 
-Designed for engineers and researchers who demand a "glass-box" view of algorithmic internals, Axiom eliminates the overhead of production heavyweights while maintaining the rigor of an industrial-grade stack.
+Axiom is a lightweight, educational ML library that implements deep learning and classical algorithms from first principles — no PyTorch, no TensorFlow, no autograd magic. Every forward pass, every gradient, every weight update is written explicitly so you can read, trace, and understand exactly what is happening at each step.
 
-***
+Built as a learning project during the first year of CS engineering at [ENSI (École Nationale des Sciences de l'Informatique)](https://ensi.rnu.tn/), Axiom is both a proof-of-concept and a functional prototyping tool for students and developers who want to go beyond calling `.fit()`.
 
-🏗️ Core Architecture
----------------------
+---
 
-Axiom is organized into distinct modules, allowing for a hybrid approach to machine learning:
+## Why Axiom?
 
-### 🧠 Neural Engine (`axiom.nn`)
+Most ML frameworks abstract away the calculus. That is great for production — but terrible for learning. Axiom takes the opposite bet: **every operation is transparent, every derivative is hand-written, and every design choice is documented.**
 
-*   **Sequential API:** Build deep architectures effortlessly using a stackable layer interface.
-    
-*   **Smart Initialization:** Automated selection of **He**, **Xavier**, or **LeCun** strategies based on subsequent activation functions.
-    
-*   **Optimization Suite:** Momentum-based SGD for accelerated convergence and L2 Regularization for robust generalization.
-    
-*   **Activations:** Comprehensive support for `ReLU`, `Leaky_ReLU`, `Sigmoid`, `Tanh`, and `SELU`.
-    
+| Feature | Axiom | Scikit-learn | PyTorch |
+|---|---|---|---|
+| Dependencies | NumPy only | Many | Many |
+| Manual backprop | ✅ | ❌ | ❌ (autograd) |
+| Readable internals | ✅ | Partial | ❌ |
+| Educational focus | ✅ | Partial | ❌ |
+| Production-ready | ❌ (by design) | ✅ | ✅ |
 
-### 🌲 Logic Suite (`axiom.trees`)
+---
 
-*   **Decision Trees:** Recursive splitting logic utilizing **Information Gain** and **Entropy/Gini Impurity**.
-    
-*   **Ensemble Methods:** Native support for **Random Forests** and **Boosting** strategies.
-    
-*   **Categorical Handling:** Efficient processing of discrete decision boundaries without gradient dependency.
-    
+## Feature Overview
 
-### 📈 Linear Systems (`axiom.linear`)
+### Classical Supervised Learning
+- **Linear Regression** — gradient descent implementation
+- **Logistic Regression** — binary classification with sigmoid output
+- **Decision Tree Classifier** — recursive splitting with information gain / Gini impurity
+- **Gradient Boosting Machines (GBM)** — ensemble boosting over decision stumps
+- **XGBoost** — second-order gradient boosting with regularization
+- **LightGBM** — histogram-based, leaf-wise tree growth
+- **Linear Tree** — hybrid model combining linear functions at leaf nodes
 
-*   **Closed-Form Solutions:** Linear Regression via the **Normal Equation** for direct mathematical optimization.
-    
-*   **Iterative Solvers:** Logistic Regression implemented with optimized Gradient Descent kernels.
-    
+### Deep Learning
+- **Sequential / Model API** — two interfaces for building and training neural networks
+- **Dense (Fully Connected) Layers** — with weight/bias state management
+- **Activations** — ReLU, Leaky ReLU, Sigmoid, Tanh, SELU (forward + analytical derivative for each)
+- **Loss Functions** — MSE, Binary Cross-Entropy (BCE), Categorical Cross-Entropy (CCE), Log-Cosh
+- **Optimizers** — Vanilla SGD, Momentum SGD
 
-***
+### Preprocessing
+- **Scalers** — feature normalization and standardization utilities
+- **Encoders** — label and one-hot encoding utilities
 
-⚡ Quick Start
--------------
+---
 
-### Installation
+## Installation
 
-Ensure you have the core numerical dependency installed:
+Axiom requires Python 3.8+ and NumPy. Install via pip:
 
-Bash
+```bash
+pip install axiom-ml
+```
 
-    pip install numpy 
+Or clone and install locally for development:
 
-### Running the XOR Benchmark
+```bash
+git clone https://github.com/your-username/axiom-ml.git
+cd axiom-ml
+pip install -e .
+```
 
-Verify the Neural Engine’s convergence on non-linear boundaries:
+Verify the installation:
 
-Bash
+```python
+import axiom
+axiom.info()
+# Axiom ML Library v0.1.0
+# Status: Operational. Optimized for NumPy-based learning.
+```
 
-    git clone https://github.com/tammam-bt/Axiom.git
-    cd Axiom
-    python test_xor.py 
+---
 
-***
+## Quickstart
 
-📉 Example Usage
-----------------
+### Train a Neural Network
 
-### Building a Neural Network
+```python
+import numpy as np
+from axiom import Sequential, Dense, Relu, Model
 
-Python
+# Build the model using the Sequential API
+Sequential = Sequential([
+Dense(728,64),
+Relu(),
+Dense(64,32),
+Relu(),
+Dense(32,1),
+])
 
-    import axiom as ax
-    import numpy as np
-    
-    # Define architecture
-    network = ax.nn.Sequential([
-        ax.nn.Dense(2, 8, momentum_beta=0.9),
-        ax.nn.ReLU(),
-        ax.nn.Dense(8, 1),
-        ax.nn.Sigmoid()
-    ])
-    
-    model = ax.Model(network, loss="BCE")
-    model.fit(x_train, y_train, epochs=2000, lr=0.1) 
+model = Model(Sequential, loss="MSE")
+model.fit(X_train, y_train, epochs=50, lr=0.1)
 
-### Deploying a Decision Tree
+predictions = model.predict(X_test)
+```
 
-Python
+### Binary Classification (Logistic Regression)
 
-    from axiom.trees import DecisionTreeClassifier
-    
-    clf = DecisionTreeClassifier(max_depth=5, criterion="entropy")
-    clf.fit(X_train, y_train)
-    predictions = clf.predict(X_test) 
+```python
+from axiom import LogisticRegression
 
-***
+clf = LogisticRegression(learning_rate=0.1, epochs=1000)
+clf.fit(X_train, y_train)
 
-🛠️ Technical Specifications
-----------------------------
+Predictions = clf.predict(X_test, y_test)
+print(f"Predictions: {Predictions}")
+```
 
-| Component | Supported Features | Optimization Strategy | Mathematical Basis |
-| :--- | :--- | :--- | :--- |
-| **Optimizers** | SGD, Momentum | Velocity tracking, Weight Decay (L2) | Gradient Descent |
-| **Loss Functions** | BCE, MSE, CCE, Log-Cosh | Fused Gradients, Epsilon Clipping | Information Theory / Calculus |
-| **Initializers** | He, Xavier, LeCun | Distribution-aware variance scaling | Statistical Initialization |
-| **Tree Logic** | ID3 / C4.5 Optimized | Recursive partitioning | Shannon Entropy / Gini |
+### Decision Tree
 
-🚀 Roadmap & Future Milestones
-------------------------------
+```python
+from axiom import DecisionTreeClassifier
 
-*   \[ \] **Vectorized Mini-batching:** Transition from full-batch to stochastic mini-batch processing for large-scale data.
-    
-*   \[ \] **Adaptive Optimizers:** Implementation of **Adam** and **RMSProp** for automated learning rate scaling.
-    
-*   \[ \] **Convolutional Kernels:** Expanding the Neural Engine to support spatial feature extraction (CNNs).
-    
-*   \[ \] **Serialization:** Native `.npz` support for saving and deploying trained model weights.
-    
+tree = DecisionTreeClassifier(max_depth=5, criterion="gini")
+tree.fit(X_train, y_train)
+preds = tree.predict(X_test)
+```
 
-***
+---
+
+## Project Structure
+
+```
+axiom-repo/
+├── src/
+│   └── axiom/
+│       ├── __init__.py          # Public API — all top-level imports live here
+│       ├── core/
+│       │   ├── base.py          # Abstract base classes (BaseLayer, BaseLoss, ...)
+│       │   ├── losses.py        # MSE, BCE, CCE, LOG_COSH
+│       │   └── optimizers.py    # SGD, MomentumSGD
+│       ├── neural/
+│       │   ├── engine.py        # Sequential and Model training engines
+│       │   ├── layers.py        # Dense layer
+│       │   └── activations.py   # Relu, LeakyRelu, Sigmoid, Tanh, Selu
+│       ├── linear/
+│       │   ├── linear_regression.py
+│       │   └── logistic_regression.py
+│       ├── trees/
+│       │   ├── decision_tree.py # DecisionTreeClassifier
+│       │   ├── gains.py         # Gini impurity, entropy, information gain
+│       │   ├── gbm.py           # Gradient Boosting Machines
+│       │   ├── xgboost.py       # XGBoost implementation
+│       │   ├── lightgbm.py      # LightGBM implementation
+│       │   └── linear_tree.py   # Linear model at leaf nodes
+│       └── preprocessing/
+│           ├── scalers.py       # Feature scaling utilities
+│           └── encoders.py      # Label and one-hot encoders
+├── tests/
+│   ├── decision_tree_test.py
+│   ├── linear_regression_test.py
+│   ├── logistic_regression_test.py
+│   ├── refactoring_test.py
+│   └── test_xor.py
+├── docs/
+│   └── manual.md
+├── pyproject.toml
+├── LICENSE
+└── README.md
+```
+
+---
+
+## Design Philosophy
+
+Axiom is built around three convictions:
+
+1. **Transparency over convenience.** No hidden operations. If a weight is updated, you can find exactly where and why in the source.
+2. **Math-first implementation.** Every algorithm maps directly to its mathematical definition. Reading the code and reading the equations should feel equivalent.
+3. **Modular by design.** Components (layers, activations, losses, optimizers) are fully decoupled. Swap any piece without touching the rest.
+
+---
+
+## Contributing
+
+Contributions, issues, and suggestions are welcome! This project is especially friendly to fellow students working through ML fundamentals.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/my-feature`)
+3. Commit your changes (`git commit -m 'Add my feature'`)
+4. Push to the branch (`git push origin feature/my-feature`)
+5. Open a Pull Request
+
+Please make sure any new algorithm includes its mathematical derivation in the docstring.
+
+---
+
+## License
+
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+
+---
+
+## Acknowledgements
+
+Built from scratch during Year 1 at **ENSI — École Nationale des Sciences de l'Informatique**, Tunisia.  
+By **Tammam BenBettayeb** — inspired by the "implement it yourself to understand it" philosophy of foundational CS education.
 
 📜 Licensing
 ------------
