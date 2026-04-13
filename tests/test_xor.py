@@ -1,4 +1,4 @@
-import axiom.neural.engine as NN
+import axiom as NN
 # import tensorflow as tf
 import time
 import numpy as np

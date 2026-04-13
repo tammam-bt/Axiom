@@ -1,6 +1,6 @@
 import numpy as np
 from sklearn.datasets import make_blobs
-from axiom.linear.logisitc_regression import LogisticRegression
+from axiom.linear.logistic_regression import LogisticRegression
 
 # 1. Generate linearly separable clusters
 X, y = make_blobs(n_samples=200, centers=2, n_features=2, cluster_std=0.5, random_state=42)
