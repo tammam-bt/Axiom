@@ -9,6 +9,7 @@ __author__ = "Tammam BenBettayeb"
 # A failed import here should stop `import axiom` loudly, not print a warning
 # and leave half of __all__ undefined.
 from .trees.decision_tree import DecisionTreeClassifier, DecisionTreeRegressor
+from .trees.gbm import GBM, GBMClassifier, GBMRegressor
 from .neural.engine import Sequential, Model
 from .neural.layers import Dense
 from .neural.activations import LeakyRelu, Relu, Sigmoid, Tanh, Selu
@@ -18,6 +19,7 @@ from .linear.logistic_regression import LogisticRegression
 
 __all__ = [
     "DecisionTreeClassifier", "DecisionTreeRegressor",
+    "GBM", "GBMClassifier", "GBMRegressor",
     "Sequential", "Model",
     "Dense", "LeakyRelu", "Relu", "Sigmoid", "Tanh", "Selu",
     "MSE", "BCE", "CCE", "LOG_COSH",
