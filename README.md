@@ -52,7 +52,7 @@ Most ML frameworks abstract away the calculus. That is great for production — 
 - **Optimizers** — `SGD` and `MomentumSGD` with `step(params, grads)`; standalone for now, as `Dense` still applies its own momentum update
 
 ### Preprocessing
-- **Scalers** — feature normalization and standardization utilities
+- **Scalers** — `MinMaxScaler` and `StandardScaler` (fit / transform / inverse_transform with per-feature training statistics), and the functions `min_max_scale`, `standard_scale` and `max_abs_scale`
 - **Encoders** — `LabelEncoder` and `OneHotEncoder` with fit / transform / inverse_transform
 
 ---
@@ -168,7 +168,7 @@ Axiom/
 │       │   ├── lightgbm.py      # in progress (empty)
 │       │   └── linear_tree.py   # in progress (empty)
 │       └── preprocessing/
-│           ├── scalers.py       # Feature scaling utilities
+│           ├── scalers.py       # MinMaxScaler, StandardScaler, scaling functions
 │           └── encoders.py      # LabelEncoder, OneHotEncoder
 ├── tests/                       # pytest suite: pip install -e ".[test]" && pytest
 │   ├── test_trees.py

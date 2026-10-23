@@ -16,6 +16,7 @@ from .neural.activations import LeakyRelu, Relu, Sigmoid, Tanh, Selu
 from .core.losses import MSE, BCE, CCE, LOG_COSH
 from .core.optimizers import SGD, MomentumSGD
 from .preprocessing.encoders import LabelEncoder, OneHotEncoder
+from .preprocessing.scalers import MinMaxScaler, StandardScaler
 from .linear.linear_regression import LinearRegression
 from .linear.logistic_regression import LogisticRegression
 
@@ -27,6 +28,7 @@ __all__ = [
     "MSE", "BCE", "CCE", "LOG_COSH",
     "SGD", "MomentumSGD",
     "LabelEncoder", "OneHotEncoder",
+    "MinMaxScaler", "StandardScaler",
     "LinearRegression", "LogisticRegression",
     "__version__"
 ]
