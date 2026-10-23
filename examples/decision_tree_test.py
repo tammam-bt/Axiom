@@ -3,6 +3,7 @@
 import numpy as np
 
 from axiom.trees.decision_tree import DecisionTreeClassifier
+from axiom.trees.gains import entropy, information_gain
 
 
 print("Initializing sanity check...")
@@ -41,8 +42,8 @@ print("Dataset created. Starting tree training...")
 # Setting max_depth=1 to strictly test the first calculation
 tree = DecisionTreeClassifier(max_depth=5, min_samples_split=5, verbose=False)
 
-print(tree.compute_information_gain(X, y, threshold=0.2, feature=0)["info_gain"])  # Debug statement to check info gain calculation for feature 0
-print(tree.compute_information_gain(X, y, threshold=0.7, feature=1)["info_gain"])  # Debug statement to check info gain calculation for feature 1
+print(information_gain(y, X[:, 0] <= 0.2, entropy))  # Debug statement to check info gain calculation for feature 0
+print(information_gain(y, X[:, 1] <= 0.7, entropy))  # Debug statement to check info gain calculation for feature 1
 
 tree.fit(X, y)
 tree.print_tree()
