@@ -97,3 +97,13 @@ def test_logistic_logging_keeps_one_weight_snapshot_per_epoch():
     Xtr, _, ytr, _ = scaled_breast_cancer()
     log = LogisticRegression(alpha=0.1).fit(Xtr, ytr, epochs=3, with_logging=True)
     assert not np.array_equal(log["Weights"][0], log["Weights"][2])
+
+
+def test_logistic_regression_refit_starts_from_scratch():
+    X, _, y, _ = scaled_breast_cancer()
+    model = LogisticRegression(alpha=0.1, b=0.5)
+    model.fit(X, y, epochs=50)
+    w1, b1 = model.w.copy(), model.b
+    model.fit(X, y, epochs=50)
+    assert np.array_equal(model.w, w1)
+    assert model.b == b1

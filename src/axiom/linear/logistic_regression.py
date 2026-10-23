@@ -6,11 +6,14 @@ class LogisticRegression(BaseEstimator):
     def __init__(self, b = 0.0, alpha = 0.01, verbose = False):
         self.w = None
         self.b = b
+        self._initial_b = b
         self.alpha = alpha
         self.verbose = verbose
     
     def fit(self, X, y, epochs = 1000, with_logging = False):
+        # Every fit starts from the same point, so refitting gives the same result.
         self.w = np.ones(X.shape[1])
+        self.b = self._initial_b
         if with_logging:
             log = {"Weights": [[0 for i in range(X.shape[1])] for j in range(epochs)], "Bias": [0 for i in range(epochs)], "Cost": [0 for i in range(epochs)]}
         for i in range(epochs):

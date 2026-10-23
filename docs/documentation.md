@@ -109,11 +109,11 @@ db[l] = (1/m) * sum(dZ[l], axis=0) # Bias gradient, averaged over batch
 dA[l-1] = dZ[l] · W[l].T           # Gradient to pass to the previous layer
 ```
 
-Every layer in Axiom implements a `backward(dA)` method that carries out exactly this computation, using the `Z[l]` and `A[l-1]` values cached during the forward pass.
+Every layer in Axiom implements a `backward(output_gradient, learning_rate)` method that carries out this computation, using the input cached during the forward pass. `Dense` also applies its own weight update inside `backward()`.
 
 ### 2.3 Weight Initialization
 
-Initializing all weights to zero causes **symmetry breaking failure** — every neuron learns the same thing. Initializing with naively large values causes **exploding gradients**. Axiom implements two principled strategies:
+Initializing all weights to zero causes **symmetry breaking failure** — every neuron learns the same thing. Initializing with naively large values causes **exploding gradients**. Axiom implements three principled strategies (`Sequential` picks one for each `Dense` layer from the activation that follows it):
 
 **Xavier / Glorot Initialization** (recommended for Sigmoid / Tanh activations):
 
@@ -130,7 +130,13 @@ This preserves variance of activations across layers, derived from the condition
 W ~ Normal(0, √(2 / n_in))
 ```
 
-Because ReLU kills half of its inputs (the negative half), He initialization compensates by using a larger variance: `Var(W) = 2 / n_in`. This is also the correct choice for **Leaky ReLU** and **SELU**, which are ReLU variants.
+Because ReLU kills half of its inputs (the negative half), He initialization compensates by using a larger variance: `Var(W) = 2 / n_in`. This is also the correct choice for **Leaky ReLU**, which is a ReLU variant.
+
+**LeCun Initialization** (used for SELU):
+
+```
+W ~ Uniform(-√(3 / n_in),  +√(3 / n_in))
+```
 
 ### 2.4 Optimization
 
@@ -168,13 +174,13 @@ J_regularized = J + (λ / 2m) * Σ ||W[l]||²_F
 
 Where `||W[l]||²_F` is the Frobenius norm (sum of squared elements) of the weight matrix for layer `l`, and `λ` is the regularization strength hyperparameter.
 
-The gradient update for the weights becomes:
+In `Dense` the penalty is applied directly in the weight update, with `λ` passed as `l2_lambda` (default `0.0`, no regularization):
 
 ```
-∂J_reg/∂W[l] = ∂J/∂W[l] + (λ/m) * W[l]
+W := W - lr * (v_W + λ * W)
 ```
 
-This extra term `(λ/m) * W[l]` effectively **shrinks the weights at every step** (hence "weight decay"), making it harder for the network to memorize and overfit the training data.
+This extra term `λ * W` effectively **shrinks the weights at every step** (hence "weight decay"), making it harder for the network to memorize and overfit the training data.
 
 ---
 
@@ -189,43 +195,56 @@ from axiom import Sequential, Model
 # or: from axiom.neural.engine import Sequential, Model
 ```
 
-Axiom exposes two training engine interfaces. `Sequential` is the higher-level, Keras-style API with a `compile` step. `Model` provides lower-level control where the loss and optimizer are passed at construction time.
+`Sequential` holds the stack of layers and runs the forward and backward passes through it. `Model` wraps a `Sequential` with a loss and the training loop. The loss is chosen by name when the `Model` is built, and the learning rate is passed to `fit`.
 
 #### `Sequential`
 
 ```python
-model = Sequential()
-model.add(Dense(64, input_dim=784))
-model.add(Relu())
-model.add(Dense(10))
+import numpy as np
+from axiom import Sequential, Dense, Relu
 
-model.compile(loss=CCE(), optimizer=MomentumSGD(lr=0.01))
-history = model.fit(X_train, y_train, epochs=100, batch_size=32)
-predictions = model.predict(X_test)
+net = Sequential([
+    Dense(784, 64),
+    Relu(),
+    Dense(64, 10),
+])
+net.add(Relu())                       # layers can also be appended one at a time
+
+out = net.forward(np.zeros((2, 784)))
+print(out.shape)                      # (2, 10)
 ```
 
 #### `Model`
 
 ```python
-model = Model(loss=MSE(), optimizer=SGD(lr=0.05))
-model.add(Dense(32, input_dim=8))
-model.add(Relu())
-model.add(Dense(1))
+import numpy as np
+from axiom import Sequential, Model, Dense, Relu
 
-model.fit(X_train, y_train, epochs=200)
+X_train = np.random.default_rng(0).normal(size=(100, 8))
+y_train = X_train.sum(axis=1, keepdims=True)
+
+net = Sequential([Dense(8, 32), Relu(), Dense(32, 1)])
+model = Model(net, loss="mse")
+
+model.fit(X_train, y_train, epochs=200, lr=0.05)
+predictions = model.predict(X_train)
 ```
 
-#### Common Methods
+`loss` is a lowercase name: `"mse"` (also the fallback for an unknown name), `"bce"`, `"cce"` or `"logcosh"`. The loss functions themselves are in [3.4](#34-loss-functions).
 
-| Method                                | Description                                     |
-| ------------------------------------- | ----------------------------------------------- |
-| `model.add(layer)`                    | Append a layer or activation to the stack       |
-| `model.compile(loss, optimizer)`      | _(Sequential only)_ Set loss and optimizer      |
-| `model.fit(X, y, epochs, batch_size)` | Train the model; returns loss history           |
-| `model.predict(X)`                    | Forward pass; returns raw output of final layer |
-| `model.evaluate(X, y)`                | Returns scalar loss on a dataset                |
+#### Methods
 
-> **Note:** `input_dim` only needs to be specified on the **first** `Dense` layer. All subsequent layers infer their input size automatically.
+| Method                                  | Description                                                       |
+| --------------------------------------- | ----------------------------------------------------------------- |
+| `Sequential(layers=None)`               | Build a stack from a list of layers                               |
+| `net.add(layer)`                        | Append a layer or activation to the stack                         |
+| `net.forward(X)`                        | Run `X` through every layer                                       |
+| `net.backward(grad, lr)`                | Backpropagate a loss gradient and update the `Dense` weights      |
+| `Model(net, loss="MSE")`                | Wrap a `Sequential` with a loss, chosen by name                   |
+| `model.fit(X, y, epochs, lr)`           | Full-batch training; prints the error about 100 times per run     |
+| `model.predict(X)`                      | Forward pass; returns the raw output of the final layer           |
+
+> **Note:** each `Dense` layer takes its input size explicitly: `Dense(input_size, output_size)`. There is no `compile` step, no mini-batching and no `evaluate`; compute a score yourself from `model.predict`.
 
 ---
 
@@ -236,27 +255,31 @@ from axiom import Dense
 # or: from axiom.neural.layers import Dense
 ```
 
-#### `Dense(units, input_dim, initializer)`
+#### `Dense(input_size, output_size, initialization="xavier", momentum_beta=0.9, l2_lambda=0.0)`
 
 A fully connected layer. Computes `Z = XW + b`.
 
-| Parameter     | Type  | Default | Description                                          |
-| ------------- | ----- | ------- | ---------------------------------------------------- |
-| `units`       | `int` | —       | Number of neurons (output dimension)                 |
-| `input_dim`   | `int` | `None`  | Input dimension (only required for the first layer)  |
-| `initializer` | `str` | `"he"`  | Weight init strategy: `"he"`, `"xavier"`, `"random"` |
+| Parameter        | Type    | Default    | Description                                                            |
+| ---------------- | ------- | ---------- | ---------------------------------------------------------------------- |
+| `input_size`     | `int`   | —          | Number of inputs                                                       |
+| `output_size`    | `int`   | —          | Number of neurons (output dimension)                                   |
+| `initialization` | `str`   | `"xavier"` | Weight init: `"xavier"`, `"he"` (or `"kaiming"`), `"lecun"`            |
+| `momentum_beta`  | `float` | `0.9`      | Momentum coefficient for the layer's own update                        |
+| `l2_lambda`      | `float` | `0.0`      | L2 penalty strength                                                    |
 
-**Attributes after build:**
+Inside a `Sequential`, the initialization is replaced by the one that suits the activation that follows the layer (see [2.3](#23-weight-initialization)).
 
-- `layer.W` — weight matrix, shape `(input_dim, units)`
-- `layer.b` — bias vector, shape `(1, units)`
-- `layer.dW` — weight gradient (populated after `backward()`)
-- `layer.db` — bias gradient (populated after `backward()`)
+**Attributes:**
+
+- `layer.weights` — weight matrix, shape `(input_size, output_size)`
+- `layer.bias` — bias vector, shape `(1, output_size)`
+- `layer.velocity` — momentum buffer, same shape as `weights`
+- `layer.input` — the input cached by the last `forward()`
 
 **Core methods:**
 
-- `layer.forward(A_prev)` → `Z` — linear transform, caches `A_prev` and `Z`
-- `layer.backward(dZ)` → `dA_prev` — computes `dW`, `db`, returns upstream gradient
+- `layer.forward(input_data)` → `Z` — linear transform, caches the input
+- `layer.backward(output_gradient, learning_rate)` → gradient for the previous layer — updates `weights` and `bias` in place and returns the upstream gradient
 
 ---
 
@@ -324,10 +347,21 @@ from axiom import MSE, BCE, CCE, LOG_COSH
 # or: from axiom.core.losses import MSE, BCE, CCE, LOG_COSH
 ```
 
+Each loss is a plain function `loss(y_true, y_predicted)` that returns a scalar. The matching gradient function (`MSE_derivative`, `BCE_derivative`, `CCE_derivative`, `LOG_COSH_derivative`, same arguments) lives in `axiom.core.losses`. `Model` picks the pair by name.
+
+```python
+import numpy as np
+from axiom import MSE, BCE
+
+y_true = np.array([[1.0], [0.0]])
+y_pred = np.array([[0.9], [0.2]])
+print(MSE(y_true, y_pred), BCE(y_true, y_pred))
+```
+
 #### `MSE` — Mean Squared Error
 
 ```
-J = (1/m) * Σ (ŷ - y)²
+J = mean((ŷ - y)²)
 dA = (2/m) * (ŷ - y)
 ```
 
@@ -336,25 +370,25 @@ Use for **regression** tasks where the output is a continuous value.
 #### `BCE` — Binary Cross-Entropy
 
 ```
-J = -(1/m) * Σ [ y·log(ŷ) + (1-y)·log(1-ŷ) ]
-dA = -(y/ŷ) + (1-y)/(1-ŷ)
+J = -mean[ y·log(ŷ) + (1-y)·log(1-ŷ) ]
+dA = (1/m) * (ŷ - y) / (ŷ(1-ŷ))
 ```
 
-Use for **binary classification** (single sigmoid output neuron).
+Use for **binary classification** (a sigmoid output). When the last layer is a `Sigmoid` and the loss is `"bce"`, `Model` uses the fused gradient `(ŷ - y) / m` and skips the sigmoid's own derivative.
 
 #### `CCE` — Categorical Cross-Entropy
 
 ```
-J = -(1/m) * Σ_i Σ_k y_ik · log(ŷ_ik)
-dA[L] = ŷ - y      # Simplified result of softmax + CCE combined
+J = -mean[ y·log(ŷ) ]
+dA = -(y/ŷ) / m
 ```
 
-Use for **multi-class classification**. The gradient shown assumes this loss is always paired with a softmax output layer, which yields the clean analytical form above.
+Takes one-hot targets and predicted probabilities. Axiom has no softmax layer yet, so the predictions have to come from your own normalisation; the fused softmax gradient is not implemented. For several classes with the layers that exist today, a sigmoid output per class with `"bce"` is the simplest route (see [4.1](#41-multi-class-classification-one-vs-rest)).
 
 #### `LOG_COSH` — Log-Cosh Loss
 
 ```
-J = (1/m) * Σ log(cosh(ŷ - y))
+J = mean[ log(cosh(ŷ - y)) ]
 dA = (1/m) * tanh(ŷ - y)
 ```
 
@@ -383,6 +417,17 @@ from axiom.core.optimizers import SGD, MomentumSGD
 
 `momentum=` is accepted as another name for `beta`. Both optimizers update a list of arrays in place with `opt.step(params, grads)`, using the rules in [2.4](#24-optimization). They are standalone for now: `Dense` still applies its own momentum update inside `backward()`.
 
+```python
+import numpy as np
+from axiom.core.optimizers import MomentumSGD
+
+w = np.array([1.0, -2.0])
+opt = MomentumSGD(lr=0.1, beta=0.9)
+for _ in range(100):
+    opt.step([w], [2 * w])      # gradient of sum(w**2)
+print(w)                        # close to [0, 0]
+```
+
 ---
 
 ### 3.6 Classical Algorithms
@@ -390,27 +435,43 @@ from axiom.core.optimizers import SGD, MomentumSGD
 #### Linear Regression
 
 ```python
-from axiom import LinearRegression
+import numpy as np
+from axiom import LinearRegression, MSE
 # or: from axiom.linear.linear_regression import LinearRegression
 
-model = LinearRegression(learning_rate=0.01, epochs=1000)
-model.fit(X_train, y_train)
+rng = np.random.default_rng(0)
+X_train, X_test = rng.normal(size=(80, 3)), rng.normal(size=(20, 3))
+y_train = X_train @ np.array([1.5, -2.0, 0.5]) + 3.0
+y_test = X_test @ np.array([1.5, -2.0, 0.5]) + 3.0
+
+model = LinearRegression(alpha=0.1)          # alpha is the learning rate
+model.fit(X_train, y_train, epochs=1000)
 predictions = model.predict(X_test)
-mse = model.score(X_test, y_test)
+mse = MSE(y_test, predictions)
 ```
+
+`fit(x, y, epochs=1000, with_logging=False)` returns the cost after each epoch when `with_logging=True`, otherwise `None`. The fitted parameters are `model.weights` and `model.bias`.
 
 #### Logistic Regression
 
 ```python
+import numpy as np
 from axiom import LogisticRegression
 # or: from axiom.linear.logistic_regression import LogisticRegression
 
-model = LogisticRegression(learning_rate=0.1, epochs=500)
-model.fit(X_train, y_train)
-preds = model.predict(X_test)       # Returns class labels
-probs = model.predict_proba(X_test) # Returns sigmoid probabilities
-acc   = model.score(X_test, y_test)
+rng = np.random.default_rng(0)
+X_train, X_test = rng.normal(size=(80, 3)), rng.normal(size=(20, 3))
+y_train = (X_train[:, 0] + X_train[:, 1] > 0).astype(int)
+y_test = (X_test[:, 0] + X_test[:, 1] > 0).astype(int)
+
+model = LogisticRegression(alpha=0.1)         # alpha is the learning rate
+model.fit(X_train, y_train, epochs=500)
+preds = model.predict(X_test)                 # Returns 0/1 class labels
+probs = model.predict_proba(X_test)           # Returns sigmoid probabilities
+acc = np.mean(preds == y_test)
 ```
+
+`fit(X, y, epochs=1000, with_logging=False)` starts from the same point every time (weights of one, bias from the constructor's `b`), so fitting twice on the same data gives the same parameters. The fitted parameters are `model.w` and `model.b`.
 
 #### Decision Trees
 
@@ -418,12 +479,17 @@ acc   = model.score(X_test, y_test)
 from axiom import DecisionTreeClassifier, DecisionTreeRegressor
 # or: from axiom.trees.decision_tree import DecisionTreeClassifier, DecisionTreeRegressor
 
+import numpy as np
+rng = np.random.default_rng(0)
+X_train, X_test = rng.normal(size=(80, 3)), rng.normal(size=(20, 3))
+y_train = (X_train[:, 0] > 0).astype(int)
+
 tree = DecisionTreeClassifier(criterion="gini", max_depth=10)
 tree.fit(X_train, y_train)
 preds = tree.predict(X_test)
 
 reg = DecisionTreeRegressor(max_depth=4)
-reg.fit(X_train, y_train)
+reg.fit(X_train, X_train[:, 0] * 2.0)
 values = reg.predict(X_test)
 ```
 
@@ -440,12 +506,18 @@ All ensemble methods live in `axiom/trees/` and are built on top of the same dec
 ```python
 from axiom.trees.gbm import GBM, GBMRegressor, GBMClassifier   # GBM is GBMRegressor
 
+import numpy as np
+rng = np.random.default_rng(0)
+X_train, X_test = rng.normal(size=(80, 3)), rng.normal(size=(20, 3))
+y_train = X_train[:, 0] * 2.0
+y_binary = (X_train[:, 0] > 0).astype(int)
+
 model = GBM(n_estimators=100, learning_rate=0.1, max_depth=3)
 model.fit(X_train, y_train)
 preds = model.predict(X_test)
 
 clf = GBMClassifier(n_estimators=100, learning_rate=0.1, max_depth=3)
-clf.fit(X_train, y_train)            # exactly two classes
+clf.fit(X_train, y_binary)           # exactly two classes
 labels = clf.predict(X_test)
 probs = clf.predict_proba(X_test)    # probability of clf.classes_[1]
 ```
@@ -457,6 +529,7 @@ GBM fits an additive sequence of weak learners (shallow trees), where each new t
 > **In progress.** `axiom/trees/xgboost.py` is still empty, so `XGBoost` cannot be imported yet. The API below is the plan.
 
 ```python
+# planned API, not importable yet
 from axiom.trees.xgboost import XGBoost
 
 model = XGBoost(n_estimators=100, learning_rate=0.1, max_depth=4, lambda_=1.0)
@@ -471,6 +544,7 @@ Extends GBM by using **second-order Taylor expansions** of the loss for more acc
 > **In progress.** `axiom/trees/lightgbm.py` is still empty, so `LightGBM` cannot be imported yet. The API below is the plan.
 
 ```python
+# planned API, not importable yet
 from axiom.trees.lightgbm import LightGBM
 
 model = LightGBM(n_estimators=100, learning_rate=0.05, num_leaves=31)
@@ -485,6 +559,7 @@ Uses **histogram-based splitting** and **leaf-wise (best-first) tree growth** ra
 > **In progress.** `axiom/trees/linear_tree.py` is still empty, so `LinearTree` cannot be imported yet. The API below is the plan.
 
 ```python
+# planned API, not importable yet
 from axiom.trees.linear_tree import LinearTree
 
 model = LinearTree(max_depth=4)
@@ -506,6 +581,12 @@ from axiom.preprocessing.encoders import LabelEncoder, OneHotEncoder
 #### Scalers
 
 ```python
+import numpy as np
+from axiom.preprocessing.scalers import MinMaxScaler, StandardScaler
+
+X = np.random.default_rng(0).normal(size=(100, 3))
+X_train, X_test = X[:80], X[80:]
+
 scaler = StandardScaler()          # Zero mean, unit variance
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled  = scaler.transform(X_test)   # Uses stats from training set only
@@ -519,6 +600,8 @@ X_scaled = scaler.fit_transform(X)
 #### Encoders
 
 ```python
+from axiom.preprocessing.encoders import LabelEncoder, OneHotEncoder
+
 # Label encoding (ordinal integers)
 enc = LabelEncoder()
 y_encoded = enc.fit_transform(["cat", "dog", "cat", "bird"])
@@ -534,27 +617,27 @@ y_onehot = ohe.fit_transform(y_encoded)
 
 ## 4. End-to-End Examples
 
-### 4.1 Multi-Class Classification (Iris Dataset)
+The examples build their own small synthetic data, so each one runs as it stands. Swap in your own arrays of shape `(n_samples, n_features)`.
+
+### 4.1 Multi-Class Classification (one-vs-rest)
+
+Axiom has no softmax layer yet, so the network gets one sigmoid output per class and is trained with `"bce"` against one-hot targets.
 
 ```python
 import numpy as np
-from sklearn.datasets import load_iris
-from axiom import Sequential, Dense, Relu, CCE
-from axiom.neural.activations import Sigmoid
-from axiom.core.optimizers import MomentumSGD
+from axiom import Sequential, Model, Dense, Relu, Sigmoid
 from axiom.preprocessing.scalers import StandardScaler
 from axiom.preprocessing.encoders import OneHotEncoder
 
-# Load and prepare data
-data = load_iris()
-X, y_raw = data.data, data.target
+# Three Gaussian blobs in four dimensions
+rng = np.random.default_rng(0)
+centres = np.array([[0, 0, 0, 0], [3, 3, 0, 0], [0, 3, 3, 3]], dtype=float)
+y_raw = rng.integers(0, 3, size=150)
+X = centres[y_raw] + rng.normal(size=(150, 4))
 
 # Preprocess
-scaler = StandardScaler()
-X = scaler.fit_transform(X)
-
-ohe = OneHotEncoder()
-y = ohe.fit_transform(y_raw.reshape(-1, 1))  # shape: (150, 3)
+X = StandardScaler().fit_transform(X)
+y = OneHotEncoder().fit_transform(y_raw)  # shape: (150, 3)
 
 # Manual split
 split = int(0.8 * len(X))
@@ -562,15 +645,13 @@ X_train, X_test = X[:split], X[split:]
 y_train, y_test = y[:split], y[split:]
 
 # Build and train
-model = Sequential()
-model.add(Dense(16, input_dim=4))
-model.add(Relu())
-model.add(Dense(8))
-model.add(Relu())
-model.add(Dense(3))
-
-model.compile(loss=CCE(), optimizer=MomentumSGD(lr=0.01, beta=0.9))
-model.fit(X_train, y_train, epochs=300, batch_size=16)
+net = Sequential([
+    Dense(4, 16), Relu(),
+    Dense(16, 8), Relu(),
+    Dense(8, 3), Sigmoid(),
+])
+model = Model(net, loss="bce")
+model.fit(X_train, y_train, epochs=300, lr=0.1)
 
 # Evaluate
 probs = model.predict(X_test)
@@ -586,19 +667,19 @@ print(f"Test Accuracy: {accuracy * 100:.2f}%")
 
 ```python
 import numpy as np
-from axiom import Sequential, Dense, Relu, BCE, Sigmoid
-from axiom.core.optimizers import SGD
+from axiom import Sequential, Model, Dense, Relu, Sigmoid
 
-model = Sequential()
-model.add(Dense(32, input_dim=20))
-model.add(Relu())
-model.add(Dense(16))
-model.add(Relu())
-model.add(Dense(1))
-model.add(Sigmoid())
+rng = np.random.default_rng(0)
+X_train = rng.normal(size=(200, 20))
+y_train = (X_train[:, :5].sum(axis=1) > 0).astype(float).reshape(-1, 1)
 
-model.compile(loss=BCE(), optimizer=SGD(lr=0.05))
-model.fit(X_train, y_train, epochs=500, batch_size=32)
+net = Sequential([
+    Dense(20, 32), Relu(),
+    Dense(32, 16), Relu(),
+    Dense(16, 1), Sigmoid(),
+])
+model = Model(net, loss="bce")
+model.fit(X_train, y_train, epochs=500, lr=0.05)
 ```
 
 ---
@@ -607,19 +688,20 @@ model.fit(X_train, y_train, epochs=500, batch_size=32)
 
 ```python
 import numpy as np
-from axiom import Sequential, Dense, Relu, LOG_COSH
-from axiom.core.optimizers import MomentumSGD
+from axiom import Sequential, Model, Dense, Relu
+
+rng = np.random.default_rng(0)
+X_train = rng.normal(size=(200, 10))
+y_train = X_train[:, :3].sum(axis=1)
 
 # No activation on the output — raw linear output for regression
-model = Sequential()
-model.add(Dense(64, input_dim=10))
-model.add(Relu())
-model.add(Dense(32))
-model.add(Relu())
-model.add(Dense(1))   # Single continuous output
-
-model.compile(loss=LOG_COSH(), optimizer=MomentumSGD(lr=0.001, beta=0.9))
-model.fit(X_train, y_train.reshape(-1, 1), epochs=1000, batch_size=64)
+net = Sequential([
+    Dense(10, 64), Relu(),
+    Dense(64, 32), Relu(),
+    Dense(32, 1),          # Single continuous output
+])
+model = Model(net, loss="logcosh")
+model.fit(X_train, y_train.reshape(-1, 1), epochs=1000, lr=0.01)
 ```
 
 ---
@@ -627,12 +709,15 @@ model.fit(X_train, y_train.reshape(-1, 1), epochs=1000, batch_size=64)
 ### 4.4 Decision Tree vs Logistic Regression
 
 ```python
+import numpy as np
 from axiom import DecisionTreeClassifier, LogisticRegression
 from axiom.preprocessing.scalers import StandardScaler
-import numpy as np
 
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
+rng = np.random.default_rng(0)
+X = rng.normal(size=(200, 4))
+y = (X[:, 0] + 0.5 * X[:, 1] > 0).astype(int)
+
+X_scaled = StandardScaler().fit_transform(X)
 
 split = int(0.8 * len(X_scaled))
 X_train, X_test = X_scaled[:split], X_scaled[split:]
@@ -641,12 +726,12 @@ y_train, y_test = y[:split], y[split:]
 # Decision Tree
 tree = DecisionTreeClassifier(max_depth=5, criterion="entropy")
 tree.fit(X_train, y_train)
-tree_acc = tree.score(X_test, y_test)
+tree_acc = np.mean(tree.predict(X_test) == y_test)
 
 # Logistic Regression
-lr = LogisticRegression(learning_rate=0.1, epochs=1000)
-lr.fit(X_train, y_train)
-lr_acc = lr.score(X_test, y_test)
+lr = LogisticRegression(alpha=0.1)
+lr.fit(X_train, y_train, epochs=1000)
+lr_acc = np.mean(lr.predict(X_test) == y_test)
 
 print(f"Decision Tree Accuracy:   {tree_acc:.4f}")
 print(f"Logistic Regression Acc:  {lr_acc:.4f}")
@@ -660,120 +745,132 @@ The XOR function is not linearly separable — it is the canonical test that a s
 
 ```python
 import numpy as np
-from axiom import Sequential, Dense, Relu, Sigmoid, BCE
-from axiom.core.optimizers import MomentumSGD
+from axiom import Sequential, Model, Dense, Tanh, Sigmoid
 
 X = np.array([[0,0], [0,1], [1,0], [1,1]], dtype=float)
 y = np.array([[0],   [1],   [1],   [0]],   dtype=float)
 
-model = Sequential()
-model.add(Dense(4, input_dim=2))
-model.add(Relu())
-model.add(Dense(1))
-model.add(Sigmoid())
-
-model.compile(loss=BCE(), optimizer=MomentumSGD(lr=0.1, beta=0.9))
-model.fit(X, y, epochs=2000, batch_size=4)
+net = Sequential([
+    Dense(2, 8), Tanh(),
+    Dense(8, 1), Sigmoid(),
+])
+model = Model(net, loss="bce")
+model.fit(X, y, epochs=5000, lr=0.5)
 
 print(model.predict(X).round(2))
-# Expected: [[0.], [1.], [1.], [0.]]
+# Typically close to [[0.], [1.], [1.], [0.]]; the result depends on the random start.
 ```
 
 ---
 
 ## 5. Extending Axiom
 
-Axiom is designed to be extended. New layers, activations, and losses can be added by inheriting from the base classes in `axiom/core/base.py`.
+New layers can be added by inheriting from `Layer` in `axiom/neural/layers.py` and plugged into a `Sequential`. Losses and optimizers are plain functions and small classes, shown below with the interface they follow.
 
 ### Custom Layer
 
-```python
-from axiom.core.base import BaseLayer
-import numpy as np
+A layer implements `forward(input_data)` and `backward(output_gradient, learning_rate)`.
 
-class Dropout(BaseLayer):
+```python
+import numpy as np
+from axiom import Sequential, Model, Dense, Relu
+from axiom.neural.layers import Layer
+
+class Dropout(Layer):
     """Randomly zeroes units during training to prevent co-adaptation."""
 
     def __init__(self, rate=0.5):
+        super().__init__()
         self.rate = rate
         self.mask = None
         self.training = True
 
-    def forward(self, A):
+    def forward(self, input_data):
         if self.training:
             # Scale kept units by 1/(1-rate) to preserve expected activation magnitude
-            self.mask = (np.random.rand(*A.shape) > self.rate) / (1 - self.rate)
-            return A * self.mask
-        return A  # No dropout at inference time
+            self.mask = (np.random.rand(*input_data.shape) > self.rate) / (1 - self.rate)
+            return input_data * self.mask
+        return input_data  # No dropout at inference time
 
-    def backward(self, dA):
-        return dA * self.mask  # Gradient flows only through kept units
+    def backward(self, output_gradient, learning_rate):
+        return output_gradient * self.mask  # Gradient flows only through kept units
+```
+
+It plugs directly into a `Sequential`. Set `training = False` before predicting. Run this together with the class above:
+
+```python
+# continues the Dropout example above
+rng = np.random.default_rng(0)
+X_train = rng.normal(size=(100, 10))
+y_train = X_train[:, :2].sum(axis=1, keepdims=True)
+
+dropout = Dropout(rate=0.3)
+net = Sequential([Dense(10, 64), Relu(), dropout, Dense(64, 1)])
+model = Model(net, loss="mse")
+model.fit(X_train, y_train, epochs=100, lr=0.01)
+
+dropout.training = False
+predictions = model.predict(X_train)
 ```
 
 ### Custom Loss Function
 
+A loss is a function of `(y_true, y_predicted)` and a matching derivative, like the ones in `axiom/core/losses.py`. `Model` looks losses up by name in `_choose_loss`, so to train with a new one, add a branch there; until then call the pair yourself.
+
 ```python
-from axiom.core.base import BaseLoss
 import numpy as np
 
-class HuberLoss(BaseLoss):
+def huber(y_true, y_predicted, delta=1.0):
     """Less sensitive to outliers than MSE for regression tasks."""
+    residual = np.abs(y_predicted - y_true)
+    return np.mean(np.where(
+        residual <= delta,
+        0.5 * residual**2,
+        delta * residual - 0.5 * delta**2
+    ))
 
-    def __init__(self, delta=1.0):
-        self.delta = delta
+def huber_derivative(y_true, y_predicted, delta=1.0):
+    residual = y_predicted - y_true
+    return np.where(
+        np.abs(residual) <= delta,
+        residual,
+        delta * np.sign(residual)
+    ) / y_true.shape[0]
 
-    def cost(self, y_pred, y_true):
-        residual = np.abs(y_pred - y_true)
-        return np.mean(np.where(
-            residual <= self.delta,
-            0.5 * residual**2,
-            self.delta * residual - 0.5 * self.delta**2
-        ))
-
-    def gradient(self, y_pred, y_true):
-        residual = y_pred - y_true
-        return np.where(
-            np.abs(residual) <= self.delta,
-            residual,
-            self.delta * np.sign(residual)
-        ) / y_pred.shape[0]
+y_true = np.array([[0.0], [0.0]])
+y_pred = np.array([[0.5], [3.0]])
+print(huber(y_true, y_pred), huber_derivative(y_true, y_pred))
 ```
 
 ### Custom Optimizer
 
+An optimizer follows the interface of `SGD` and `MomentumSGD`: `step(params, grads)` updates a list of NumPy arrays in place.
+
 ```python
-from axiom.core.base import BaseOptimizer
 import numpy as np
 
-class RMSProp(BaseOptimizer):
+class RMSProp:
     """Adapts learning rates per-parameter using a running average of squared gradients."""
 
     def __init__(self, lr=0.001, beta=0.9, epsilon=1e-8):
         self.lr = lr
         self.beta = beta
         self.epsilon = epsilon
-        self.s = {}
+        self.s = None
 
-    def update(self, layer, layer_id):
-        if layer_id not in self.s:
-            self.s[layer_id] = {"W": np.zeros_like(layer.W), "b": np.zeros_like(layer.b)}
+    def step(self, params, grads):
+        if self.s is None:
+            self.s = [np.zeros_like(p, dtype=float) for p in params]
+        for p, g, s in zip(params, grads, self.s):
+            s *= self.beta
+            s += (1 - self.beta) * g**2
+            p -= self.lr * g / (np.sqrt(s) + self.epsilon)
 
-        self.s[layer_id]["W"] = self.beta * self.s[layer_id]["W"] + (1 - self.beta) * layer.dW**2
-        self.s[layer_id]["b"] = self.beta * self.s[layer_id]["b"] + (1 - self.beta) * layer.db**2
-
-        layer.W -= self.lr * layer.dW / (np.sqrt(self.s[layer_id]["W"]) + self.epsilon)
-        layer.b -= self.lr * layer.db / (np.sqrt(self.s[layer_id]["b"]) + self.epsilon)
-```
-
-Once defined, custom components plug directly into `Sequential` or `Model` without any other changes:
-
-```python
-model = Sequential()
-model.add(Dense(64, input_dim=10))
-model.add(Relu())
-model.add(Dropout(rate=0.3))
-model.add(Dense(1))
-model.compile(loss=HuberLoss(delta=1.5), optimizer=RMSProp(lr=0.001))
+w = np.array([1.0, -2.0])
+opt = RMSProp(lr=0.05)
+for _ in range(200):
+    opt.step([w], [2 * w])      # gradient of sum(w**2)
+print(w)
 ```
 
 ---

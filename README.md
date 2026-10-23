@@ -65,6 +65,14 @@ Axiom requires Python 3.9+ and NumPy 1.24+. Install via pip:
 pip install axiom-ml
 ```
 
+To get the latest features (0.1.2) before the PyPI release, install straight from GitHub:
+
+```bash
+pip install git+https://github.com/tammam-bt/Axiom
+```
+
+PyPI still serves 0.1.1; the GitHub install has the 0.1.2 features until that release is published.
+
 Or clone and install locally for development:
 
 ```bash
