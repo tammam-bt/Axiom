@@ -4,15 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "axiom-ml"
-version = "0.1.0"
+version = "0.1.2"
 description = "Axiom is a Python library for building and deploying machine learning models."
 authors = [{ name = "BenBettayeb Tammam", email = "tambett10@gmail.com" }]
 dependencies = [
-    "numpy >= 2.4.3",
-]     
+    "numpy >= 1.24",
+]
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -20,6 +20,9 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
+[project.optional-dependencies]
+# Only the test suite needs these; the library itself depends on NumPy alone.
+test = ["pytest", "scikit-learn"]
 
 [project.urls]
 Homepage = "https://github.com/tammam-bt/Axiom.git"
