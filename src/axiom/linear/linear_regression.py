@@ -3,8 +3,9 @@ from ..core.base import BaseEstimator
 from ..core.losses import MSE
 
 class LinearRegression(BaseEstimator):
-    def __init__(self, alpha = 0.1):
+    def __init__(self, alpha = 0.1, verbose = False):
         self.alpha = alpha
+        self.verbose = verbose
         self.weights = None
         self.bias = 0
     
@@ -13,13 +14,17 @@ class LinearRegression(BaseEstimator):
             cost_iterations = []
         n_features = x.shape[1]
         self.weights = np.zeros(n_features)
+        self.bias = 0.0
         for i in range(epochs):
             dc_dw,dc_db = self.compute_gradient(x,y)
             self.weights -= self.alpha * dc_dw
             self.bias -= self.alpha * dc_db
-            print(f"Iteration {i}: cost = {self.cost_function(x,y)}")
+            if self.verbose or with_logging:
+                cost = self.cost_function(x,y)
+            if self.verbose:
+                print(f"Iteration {i}: cost = {cost}")
             if with_logging:
-                cost_iterations.append(self.cost_function(x,y))
+                cost_iterations.append(cost)
         if with_logging:
             return cost_iterations    
         return None
@@ -28,9 +33,10 @@ class LinearRegression(BaseEstimator):
         return MSE(np.dot(x, self.weights) + self.bias, y)
     
     def compute_gradient(self, x, y):
-        m,n = x.shape
+        # MSE gradient, averaged over the batch:  dJ/dw = X^T (Xw + b - y) / m
+        m = x.shape[0]
         error = np.dot(x,self.weights) + self.bias - y
-        dc_dw = np.array([np.dot(error ,x[:,j]) / m for j in range(n)])
+        dc_dw = x.T @ error / m
         dc_db = np.sum(error) / m
         return dc_dw,dc_db
     

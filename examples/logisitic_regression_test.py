@@ -12,5 +12,5 @@ model = LogisticRegression()
 model.fit(X, y, epochs=100)
 
 # 3. Test: Accuracy should be 100% or very close for separable data
-print(np.mean((model.predict(X)>0.1) == y)) # Should return 0 or 1
+print(np.mean(model.predict(X) == y)) # predict returns 0/1 labels; predict_proba returns probabilities
 print(f"Sanity Check Accuracy: {model.cost_function(X,y)}")
