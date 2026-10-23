@@ -6,7 +6,7 @@
   <img src="https://img.shields.io/pypi/v/axiom-ml?color=blue&label=PyPI&logo=pypi&logoColor=white" alt="PyPI Version"/>
   <img src="https://img.shields.io/pypi/pyversions/axiom-ml?logo=python&logoColor=white" alt="Python Versions"/>
   <img src="https://img.shields.io/github/license/tammam-bt/axiom?color=green" alt="License"/>
-  <img src="https://img.shields.io/pypi/dm/axiom?color=orange&label=Downloads" alt="Downloads"/>
+  <img src="https://img.shields.io/pypi/dm/axiom-ml?color=orange&label=Downloads" alt="Downloads"/>
   <img src="https://img.shields.io/badge/dependencies-NumPy%20only-lightgrey" alt="Dependencies"/>
   <img src="https://img.shields.io/badge/status-active-brightgreen" alt="Status"/>
 </p>
@@ -38,28 +38,28 @@ Most ML frameworks abstract away the calculus. That is great for production — 
 ### Classical Supervised Learning
 - **Linear Regression** — gradient descent implementation
 - **Logistic Regression** — binary classification with sigmoid output
-- **Decision Tree Classifier** — recursive splitting with information gain / Gini impurity
-- **Gradient Boosting Machines (GBM)** — ensemble boosting over decision stumps
-- **XGBoost** — second-order gradient boosting with regularization
-- **LightGBM** — histogram-based, leaf-wise tree growth
-- **Linear Tree** — hybrid model combining linear functions at leaf nodes
+- **Decision Trees** — `DecisionTreeClassifier` (entropy or Gini, any number of classes) and `DecisionTreeRegressor` (variance), with a vectorized split search
+- **Gradient Boosting Machines (GBM)** — `GBMRegressor` (squared error) and `GBMClassifier` (binary, log-loss), boosting shallow regression trees
+- **XGBoost-style boosting** — second-order gradient boosting with regularization *(in progress)*
+- **LightGBM-style boosting** — histogram-based, leaf-wise tree growth *(in progress)*
+- **Linear Tree** — hybrid model combining linear functions at leaf nodes *(in progress)*
 
 ### Deep Learning
 - **Sequential / Model API** — two interfaces for building and training neural networks
 - **Dense (Fully Connected) Layers** — with weight/bias state management
 - **Activations** — ReLU, Leaky ReLU, Sigmoid, Tanh, SELU (forward + analytical derivative for each)
 - **Loss Functions** — MSE, Binary Cross-Entropy (BCE), Categorical Cross-Entropy (CCE), Log-Cosh
-- **Optimizers** — Vanilla SGD, Momentum SGD
+- **Optimizers** — `SGD` and `MomentumSGD` with `step(params, grads)`; standalone for now, as `Dense` still applies its own momentum update
 
 ### Preprocessing
 - **Scalers** — feature normalization and standardization utilities
-- **Encoders** — label and one-hot encoding utilities
+- **Encoders** — `LabelEncoder` and `OneHotEncoder` with fit / transform / inverse_transform
 
 ---
 
 ## Installation
 
-Axiom requires Python 3.8+ and NumPy. Install via pip:
+Axiom requires Python 3.9+ and NumPy 1.24+. Install via pip:
 
 ```bash
 pip install axiom-ml
@@ -68,8 +68,8 @@ pip install axiom-ml
 Or clone and install locally for development:
 
 ```bash
-git clone https://github.com/your-username/axiom-ml.git
-cd axiom-ml
+git clone https://github.com/tammam-bt/Axiom.git
+cd Axiom
 pip install -e .
 ```
 
@@ -78,7 +78,7 @@ Verify the installation:
 ```python
 import axiom
 axiom.info()
-# Axiom ML Library v0.1.0
+# Axiom ML Library v0.1.2
 # Status: Operational. Optimized for NumPy-based learning.
 ```
 
@@ -92,8 +92,8 @@ axiom.info()
 import numpy as np
 from axiom import Sequential, Dense, Relu, Model
 
-# Build the model using the Sequential API
-Sequential = Sequential([
+# Build the network with the Sequential API
+net = Sequential([
 Dense(728,64),
 Relu(),
 Dense(64,32),
@@ -101,7 +101,7 @@ Relu(),
 Dense(32,1),
 ])
 
-model = Model(Sequential, loss="MSE")
+model = Model(net, loss="MSE")
 model.fit(X_train, y_train, epochs=50, lr=0.1)
 
 predictions = model.predict(X_test)
@@ -112,11 +112,12 @@ predictions = model.predict(X_test)
 ```python
 from axiom import LogisticRegression
 
-clf = LogisticRegression(learning_rate=0.1, epochs=1000)
-clf.fit(X_train, y_train)
+clf = LogisticRegression(alpha=0.1)
+clf.fit(X_train, y_train, epochs=1000)
 
-Predictions = clf.predict(X_test, y_test)
-print(f"Predictions: {Predictions}")
+preds = clf.predict(X_test)        # 0/1 labels
+probs = clf.predict_proba(X_test)  # probability of class 1
+print(f"Predictions: {preds}")
 ```
 
 ### Decision Tree
@@ -124,9 +125,19 @@ print(f"Predictions: {Predictions}")
 ```python
 from axiom import DecisionTreeClassifier
 
-tree = DecisionTreeClassifier(max_depth=5, criterion="gini")
+tree = DecisionTreeClassifier(criterion="gini", max_depth=5)
 tree.fit(X_train, y_train)
 preds = tree.predict(X_test)
+```
+
+### Gradient Boosting
+
+```python
+from axiom import GBMClassifier
+
+gbm = GBMClassifier(n_estimators=100, learning_rate=0.1, max_depth=3)
+gbm.fit(X_train, y_train)
+preds = gbm.predict(X_test)
 ```
 
 ---
@@ -134,12 +145,12 @@ preds = tree.predict(X_test)
 ## Project Structure
 
 ```
-axiom-repo/
+Axiom/
 ├── src/
 │   └── axiom/
 │       ├── __init__.py          # Public API — all top-level imports live here
 │       ├── core/
-│       │   ├── base.py          # Abstract base classes (BaseLayer, BaseLoss, ...)
+│       │   ├── base.py          # BaseEstimator
 │       │   ├── losses.py        # MSE, BCE, CCE, LOG_COSH
 │       │   └── optimizers.py    # SGD, MomentumSGD
 │       ├── neural/
@@ -150,23 +161,24 @@ axiom-repo/
 │       │   ├── linear_regression.py
 │       │   └── logistic_regression.py
 │       ├── trees/
-│       │   ├── decision_tree.py # DecisionTreeClassifier
-│       │   ├── gains.py         # Gini impurity, entropy, information gain
-│       │   ├── gbm.py           # Gradient Boosting Machines
-│       │   ├── xgboost.py       # XGBoost implementation
-│       │   ├── lightgbm.py      # LightGBM implementation
-│       │   └── linear_tree.py   # Linear model at leaf nodes
+│       │   ├── decision_tree.py # DecisionTreeClassifier, DecisionTreeRegressor
+│       │   ├── gains.py         # Gini impurity, entropy, variance, information gain
+│       │   ├── gbm.py           # GBMRegressor, GBMClassifier
+│       │   ├── xgboost.py       # in progress (empty)
+│       │   ├── lightgbm.py      # in progress (empty)
+│       │   └── linear_tree.py   # in progress (empty)
 │       └── preprocessing/
 │           ├── scalers.py       # Feature scaling utilities
-│           └── encoders.py      # Label and one-hot encoders
-├── tests/
-│   ├── decision_tree_test.py
-│   ├── linear_regression_test.py
-│   ├── logistic_regression_test.py
-│   ├── refactoring_test.py
-│   └── test_xor.py
+│           └── encoders.py      # LabelEncoder, OneHotEncoder
+├── tests/                       # pytest suite: pip install -e ".[test]" && pytest
+│   ├── test_trees.py
+│   ├── test_gbm.py
+│   ├── test_linear.py
+│   ├── test_preprocessing.py
+│   └── test_optimizers.py
+├── examples/                    # runnable scripts that print results
 ├── docs/
-│   └── manual.md
+│   └── documentation.md
 ├── pyproject.toml
 ├── LICENSE
 └── README.md
@@ -209,9 +221,3 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 Built from scratch during Year 1 at **ENSI — École Nationale des Sciences de l'Informatique**, Tunisia.  
 By **Tammam BenBettayeb** — inspired by the "implement it yourself to understand it" philosophy of foundational CS education.
 
-📜 Licensing
-------------
-
-This project is licensed under the [MIT License](https://opensource.org/licenses/MIT).
-
-***

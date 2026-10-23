@@ -1,6 +1,6 @@
 # Axiom (`axiom-ml`) — Technical Documentation
 
-> **Version:** 0.1.0 | **Author:** Tammam BenBettayeb | **Python:** 3.8+ | **License:** MIT | **Dependency:** NumPy only
+> **Version:** 0.1.2 | **Author:** Tammam BenBettayeb | **Python:** 3.9+ | **License:** MIT | **Dependency:** NumPy only
 
 ---
 
@@ -381,6 +381,8 @@ from axiom.core.optimizers import SGD, MomentumSGD
 | `lr`      | `float` | `0.01`  | Learning rate        |
 | `beta`    | `float` | `0.9`   | Momentum coefficient |
 
+`momentum=` is accepted as another name for `beta`. Both optimizers update a list of arrays in place with `opt.step(params, grads)`, using the rules in [2.4](#24-optimization). They are standalone for now: `Dense` still applies its own momentum update inside `backward()`.
+
 ---
 
 ### 3.6 Classical Algorithms
@@ -410,18 +412,22 @@ probs = model.predict_proba(X_test) # Returns sigmoid probabilities
 acc   = model.score(X_test, y_test)
 ```
 
-#### Decision Tree Classifier
+#### Decision Trees
 
 ```python
-from axiom import DecisionTreeClassifier
-# or: from axiom.trees.decision_tree import DecisionTreeClassifier
+from axiom import DecisionTreeClassifier, DecisionTreeRegressor
+# or: from axiom.trees.decision_tree import DecisionTreeClassifier, DecisionTreeRegressor
 
-tree = DecisionTreeClassifier(max_depth=10, criterion="gini")
+tree = DecisionTreeClassifier(criterion="gini", max_depth=10)
 tree.fit(X_train, y_train)
 preds = tree.predict(X_test)
+
+reg = DecisionTreeRegressor(max_depth=4)
+reg.fit(X_train, y_train)
+values = reg.predict(X_test)
 ```
 
-`criterion` options: `"gini"` (Gini impurity) or `"entropy"` (information gain). The splitting logic and gain computations are isolated in `axiom/trees/gains.py`, making it straightforward to audit or extend.
+`criterion` options: `"entropy"` (information gain, the default) or `"gini"` (Gini impurity); anything else raises `ValueError`. Both are computed from class counts, so any number of classes and any label type works. `DecisionTreeRegressor` splits on variance and its leaves predict the mean. `max_depth` counts the root as depth 0 (`None` means no limit), and `tree.get_depth()` returns the fitted depth. The candidate thresholds are the midpoints between consecutive distinct values of each feature. `gini`, `entropy`, `variance` and `information_gain(y, left_mask, impurity)` live in `axiom/trees/gains.py`, next to the count-based versions the tree uses to score every threshold at once.
 
 ---
 
@@ -432,16 +438,23 @@ All ensemble methods live in `axiom/trees/` and are built on top of the same dec
 #### Gradient Boosting Machine (GBM)
 
 ```python
-from axiom.trees.gbm import GBM
+from axiom.trees.gbm import GBM, GBMRegressor, GBMClassifier   # GBM is GBMRegressor
 
 model = GBM(n_estimators=100, learning_rate=0.1, max_depth=3)
 model.fit(X_train, y_train)
 preds = model.predict(X_test)
+
+clf = GBMClassifier(n_estimators=100, learning_rate=0.1, max_depth=3)
+clf.fit(X_train, y_train)            # exactly two classes
+labels = clf.predict(X_test)
+probs = clf.predict_proba(X_test)    # probability of clf.classes_[1]
 ```
 
-GBM fits an additive sequence of weak learners (shallow trees), where each new tree is trained on the **pseudo-residuals** (negative gradients of the loss) from the current ensemble.
+GBM fits an additive sequence of weak learners (shallow trees), where each new tree is trained on the **pseudo-residuals** (negative gradients of the loss) from the current ensemble. `GBMRegressor` uses squared error and starts from the mean of `y`. `GBMClassifier` uses log-loss, starts from the log-odds of the positive class and fits each tree to `y - sigmoid(F)`; each leaf then takes one Newton step, `sum(y - s) / sum(s(1 - s))` with `s = sigmoid(F)`. `model.train_loss_` holds the training loss before the first tree and after each tree.
 
 #### XGBoost
+
+> **In progress.** `axiom/trees/xgboost.py` is still empty, so `XGBoost` cannot be imported yet. The API below is the plan.
 
 ```python
 from axiom.trees.xgboost import XGBoost
@@ -455,6 +468,8 @@ Extends GBM by using **second-order Taylor expansions** of the loss for more acc
 
 #### LightGBM
 
+> **In progress.** `axiom/trees/lightgbm.py` is still empty, so `LightGBM` cannot be imported yet. The API below is the plan.
+
 ```python
 from axiom.trees.lightgbm import LightGBM
 
@@ -466,6 +481,8 @@ preds = model.predict(X_test)
 Uses **histogram-based splitting** and **leaf-wise (best-first) tree growth** rather than depth-wise growth, which reduces memory and speeds up training on larger datasets.
 
 #### Linear Tree
+
+> **In progress.** `axiom/trees/linear_tree.py` is still empty, so `LinearTree` cannot be imported yet. The API below is the plan.
 
 ```python
 from axiom.trees.linear_tree import LinearTree
@@ -761,4 +778,4 @@ model.compile(loss=HuberLoss(delta=1.5), optimizer=RMSProp(lr=0.001))
 
 ---
 
-_Documentation maintained alongside `axiom-ml` v0.1.0. For issues or suggestions, open a GitHub issue._
+_Documentation maintained alongside `axiom-ml` v0.1.2. For issues or suggestions, open a GitHub issue._
