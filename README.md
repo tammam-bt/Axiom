@@ -192,7 +192,7 @@ Axiom is built around three convictions:
 
 1. **Transparency over convenience.** No hidden operations. If a weight is updated, you can find exactly where and why in the source.
 2. **Math-first implementation.** Every algorithm maps directly to its mathematical definition. Reading the code and reading the equations should feel equivalent.
-3. **Modular by design.** Components (layers, activations, losses, optimizers) are fully decoupled. Swap any piece without touching the rest.
+3. **Modular by design.** Layers, activations and losses are separate components, so one can be swapped without touching the rest. The optimizers are standalone for now: `Dense` still applies its own momentum update.
 
 ---
 

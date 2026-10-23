@@ -33,7 +33,9 @@ class LinearRegression(BaseEstimator):
         return MSE(np.dot(x, self.weights) + self.bias, y)
     
     def compute_gradient(self, x, y):
-        # MSE gradient, averaged over the batch:  dJ/dw = X^T (Xw + b - y) / m
+        # Gradient of half the MSE, J = (1/2m) * sum((Xw + b - y)^2):
+        #   dJ/dw = X^T (Xw + b - y) / m,   dJ/db = sum(Xw + b - y) / m
+        # (the gradient of the MSE itself is twice this; the factor 2 is absorbed by alpha)
         m = x.shape[0]
         error = np.dot(x,self.weights) + self.bias - y
         dc_dw = x.T @ error / m

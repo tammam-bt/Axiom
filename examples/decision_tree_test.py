@@ -8,45 +8,26 @@ from axiom.trees.gains import entropy, information_gain
 
 print("Initializing sanity check...")
 
-# 1. More complex dataset (XOR pattern)
-# This cannot be separated with a single split; it needs depth >= 2.
-# Rule: class 1 if exactly one feature is > 0.5, else class 0.
-X = np.array([
-    # Quadrant A: x0 < 0.5, x1 < 0.5  -> class 0
-    [0.10, 0.12], [0.18, 0.20], [0.22, 0.28], [0.30, 0.35],
-    [0.40, 0.18], [0.12, 0.42], [0.33, 0.10], [0.45, 0.45],
-
-    # Quadrant B: x0 < 0.5, x1 > 0.5  -> class 1
-    [0.08, 0.62], [0.15, 0.75], [0.25, 0.88], [0.35, 0.70],
-    [0.42, 0.58], [0.20, 0.95], [0.47, 0.82], [0.05, 0.55],
-
-    # Quadrant C: x0 > 0.5, x1 < 0.5  -> class 1
-    [0.55, 0.05], [0.62, 0.22], [0.70, 0.40], [0.82, 0.12],
-    [0.95, 0.30], [0.78, 0.48], [0.58, 0.35], [0.88, 0.18],
-
-    # Quadrant D: x0 > 0.5, x1 > 0.5  -> class 0
-    [0.55, 0.60], [0.63, 0.72], [0.74, 0.84], [0.86, 0.66],
-    [0.92, 0.94], [0.68, 0.55], [0.97, 0.58], [0.79, 0.90]
-])
-
-y = np.array([
-    0, 0, 0, 0, 0, 0, 0, 0,   # Quadrant A
-    1, 1, 1, 1, 1, 1, 1, 1,   # Quadrant B
-    1, 1, 1, 1, 1, 1, 1, 1,   # Quadrant C
-    0, 0, 0, 0, 0, 0, 0, 0    # Quadrant D
-])
+# 1. XOR dataset: the four corners of the unit square, eight copies each (32 points).
+# Rule: class 1 if exactly one feature is 1, else class 0.
+# No single split separates it, so the tree needs depth 2.
+corners = np.array([[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]])
+X = np.tile(corners, (8, 1))
+y = np.tile([0, 1, 1, 0], 8)
 
 print("Dataset created. Starting tree training...")
 
-# 2. Initialize and train the tree
-# Setting max_depth=1 to strictly test the first calculation
-tree = DecisionTreeClassifier(max_depth=5, min_samples_split=5, verbose=False)
+# 2. Initialize and train the tree (max_depth=3 is enough; it stops at depth 2)
+tree = DecisionTreeClassifier(max_depth=3, min_samples_split=5, verbose=False)
 
-print(information_gain(y, X[:, 0] <= 0.2, entropy))  # Debug statement to check info gain calculation for feature 0
-print(information_gain(y, X[:, 1] <= 0.7, entropy))  # Debug statement to check info gain calculation for feature 1
+# Either first split on its own gains nothing: each side still holds half 0s and half 1s.
+# The tree takes it anyway (the best gain is 0, not negative), and the second level separates the classes.
+print("Gain of x0 <= 0.5:", information_gain(y, X[:, 0] <= 0.5, entropy))
+print("Gain of x1 <= 0.5:", information_gain(y, X[:, 1] <= 0.5, entropy))
 
 tree.fit(X, y)
 tree.print_tree()
-x_predict = np.array([[0.2, 0.1], [0.2, 0.8], [0.7, 0.4]])
+x_predict = np.array([[0.2, 0.1], [0.2, 0.8], [0.7, 0.4], [0.9, 0.7]])
 predictions = tree.predict(x_predict)
-print("Predictions for test inputs:", predictions)
+print("Predictions for test inputs:", predictions)  # expected [0 1 1 0]
+print("Training accuracy:", np.mean(tree.predict(X) == y))
